@@ -22,6 +22,9 @@ using System.Web.Services;
 using System.Web.Services.Protocols;
 using System.Collections;
 using System.Reflection;
+using System.IO;
+using System.Xml;
+using System.Xml.Serialization;
 
 namespace WebServices.UI
 {
@@ -51,6 +54,18 @@ namespace WebServices.UI
 		public WebMethod[] Methods 
 		{
 			get { return _methods; }
+		}
+
+		public WebMethod FindMethod(string name)
+		{
+			foreach(WebMethod method in this.Methods) 
+			{
+				if(string.Compare(method.Name, name, true) == 0) 
+				{
+					return method;
+				}
+			}
+			return null;
 		}
 
 		public int CompareTo(object obj)
@@ -143,6 +158,12 @@ namespace WebServices.UI
 			get { return _arg; }
 		}
 
+		[Browsable(false)]
+		public string Name
+		{
+			get { return _methodInfo.Name; }
+		}
+
 		[Browsable(true)]
 		[TypeConverter(typeof(ExpandableObjectConverter))]
 		public SoapHttpClientProtocol ConfigureService
@@ -159,7 +180,12 @@ namespace WebServices.UI
 
 		public override string ToString()
 		{
-			return _methodInfo.Name;
+			return this.Name;
+		}
+
+		internal void SetArg(object arg)
+		{
+			_arg = arg;
 		}
 
 		public object Invoke()

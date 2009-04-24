@@ -17,6 +17,7 @@
  */
 
 using System;
+using System.IO;
 using System.Collections;
 using System.Windows.Forms;
 
@@ -46,7 +47,14 @@ namespace WebServices.UI
 		private PropertyGrid propertyGrid;
 		private System.Windows.Forms.Panel gridPanel2;
 		private System.Windows.Forms.Button btnRefresh;
+		private System.Windows.Forms.Button btnLoadFile;
+		private System.Windows.Forms.Button btnSaveFile;
 		private PropertyGrid resultsGrid;
+		private System.Windows.Forms.OpenFileDialog openFileDialog;
+		private System.Windows.Forms.SaveFileDialog saveFileDialog;
+
+		private WebServiceList _webServiceList = null;
+		private string _currentFile = null;
 
 		public Form1()
 		{
@@ -112,6 +120,10 @@ namespace WebServices.UI
 			this.gridPanel2 = new System.Windows.Forms.Panel();
 			this.label3 = new System.Windows.Forms.Label();
 			this.btnRefresh = new System.Windows.Forms.Button();
+			this.btnLoadFile = new System.Windows.Forms.Button();
+			this.btnSaveFile = new System.Windows.Forms.Button();
+			this.openFileDialog = new System.Windows.Forms.OpenFileDialog();
+			this.saveFileDialog = new System.Windows.Forms.SaveFileDialog();
 			this.groupBox1.SuspendLayout();
 			this.SuspendLayout();
 			// 
@@ -175,7 +187,7 @@ namespace WebServices.UI
 			this.txtSoap.Multiline = true;
 			this.txtSoap.Name = "txtSoap";
 			this.txtSoap.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-			this.txtSoap.Size = new System.Drawing.Size(592, 152);
+			this.txtSoap.Size = new System.Drawing.Size(600, 152);
 			this.txtSoap.TabIndex = 0;
 			this.txtSoap.Text = "";
 			// 
@@ -186,7 +198,7 @@ namespace WebServices.UI
 			this.groupBox1.Controls.Add(this.txtSoap);
 			this.groupBox1.Location = new System.Drawing.Point(8, 477);
 			this.groupBox1.Name = "groupBox1";
-			this.groupBox1.Size = new System.Drawing.Size(608, 176);
+			this.groupBox1.Size = new System.Drawing.Size(616, 176);
 			this.groupBox1.TabIndex = 6;
 			this.groupBox1.TabStop = false;
 			this.groupBox1.Text = "Soap Message Log";
@@ -198,7 +210,7 @@ namespace WebServices.UI
 				| System.Windows.Forms.AnchorStyles.Right)));
 			this.gridPanel.Location = new System.Drawing.Point(8, 112);
 			this.gridPanel.Name = "gridPanel";
-			this.gridPanel.Size = new System.Drawing.Size(608, 208);
+			this.gridPanel.Size = new System.Drawing.Size(616, 208);
 			this.gridPanel.TabIndex = 7;
 			// 
 			// cbxServices
@@ -224,7 +236,7 @@ namespace WebServices.UI
 				| System.Windows.Forms.AnchorStyles.Right)));
 			this.gridPanel2.Location = new System.Drawing.Point(8, 352);
 			this.gridPanel2.Name = "gridPanel2";
-			this.gridPanel2.Size = new System.Drawing.Size(608, 120);
+			this.gridPanel2.Size = new System.Drawing.Size(616, 120);
 			this.gridPanel2.TabIndex = 10;
 			// 
 			// label3
@@ -246,10 +258,39 @@ namespace WebServices.UI
 			this.btnRefresh.Text = "Refresh Grids";
 			this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
 			// 
+			// btnLoadFile
+			// 
+			this.btnLoadFile.Location = new System.Drawing.Point(536, 8);
+			this.btnLoadFile.Name = "btnLoadFile";
+			this.btnLoadFile.Size = new System.Drawing.Size(88, 23);
+			this.btnLoadFile.TabIndex = 13;
+			this.btnLoadFile.Text = "Load File";
+			this.btnLoadFile.Click += new System.EventHandler(this.btnLoadFile_Click);
+			// 
+			// btnSaveFile
+			// 
+			this.btnSaveFile.Location = new System.Drawing.Point(536, 44);
+			this.btnSaveFile.Name = "btnSaveFile";
+			this.btnSaveFile.Size = new System.Drawing.Size(88, 23);
+			this.btnSaveFile.TabIndex = 14;
+			this.btnSaveFile.Text = "Save File";
+			this.btnSaveFile.Click += new System.EventHandler(this.btnSaveFile_Click);
+			// 
+			// openFileDialog
+			// 
+			this.openFileDialog.Filter = "Xml Files|*.xml";
+			// 
+			// saveFileDialog
+			// 
+			this.saveFileDialog.DefaultExt = "xml";
+			this.saveFileDialog.Filter = "XML files|*.xml";
+			// 
 			// Form1
 			// 
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
-			this.ClientSize = new System.Drawing.Size(624, 658);
+			this.ClientSize = new System.Drawing.Size(632, 658);
+			this.Controls.Add(this.btnSaveFile);
+			this.Controls.Add(this.btnLoadFile);
 			this.Controls.Add(this.btnRefresh);
 			this.Controls.Add(this.label3);
 			this.Controls.Add(this.gridPanel2);
@@ -312,30 +353,106 @@ namespace WebServices.UI
 
 		private void btnLoad_Click(object sender, System.EventArgs e)
 		{
+			if(txtWsdlUrl.Text.Trim().Length == 0) 
+			{
+				MessageBox.Show("Please enter the WSDL URL");
+				return;
+			}
+
 			try 
 			{
-				propertyGrid.SelectedObject = null;
-				resultsGrid.SelectedObject = null;
+				WebServiceList list = WebServiceList.LoadFromUrl(txtWsdlUrl.Text);
+				Init(list, null);
+			} 
+			catch(Exception x)
+			{
+				MessageBox.Show(x.ToString());
+			}
+		}
 
-				cbxServices.Items.Clear();
-				cbxMethods.Items.Clear();
+		private void SetTitle(string file)
+		{
+			string title = "wizdl - Web Service GUI";
 
-				WebService[] services = WebService.GetServices(txtWsdlUrl.Text);
+			if(file != null) 
+			{
+				title += " (" + Path.GetFileName(file) + ")";
+			}
 
-				foreach(WebService svc in services) 
+			this.Text = title;
+		}
+
+		private void Init(WebServiceList list, string file)
+		{
+			_webServiceList = list;
+			_currentFile = file;
+			txtWsdlUrl.Text = list.Url;
+
+			SetTitle(file);
+
+			propertyGrid.SelectedObject = null;
+			resultsGrid.SelectedObject = null;
+
+			cbxServices.Items.Clear();
+			cbxMethods.Items.Clear();
+
+			foreach(WebService svc in _webServiceList.Services) 
+			{
+				cbxServices.Items.Add(svc);
+			}
+
+			if(_webServiceList.Services.Length > 0) 
+			{
+				cbxServices.SelectedIndex = 0;
+			}
+		}
+
+		private void btnLoadFile_Click(object sender, System.EventArgs e)
+		{
+			try 
+			{
+				if(openFileDialog.ShowDialog() == DialogResult.OK)
 				{
-					cbxServices.Items.Add(svc);
-				}
-
-				if(services.Length > 0) 
-				{
-					cbxServices.SelectedIndex = 0;
+					string path = openFileDialog.FileName;
+					if(path != null && path.Length > 0) 
+					{
+						WebServiceList list = WebServiceList.Deserialize(path);
+						Init(list, path);
+					}
 				}
 			} 
 			catch(Exception x)
 			{
 				MessageBox.Show(x.ToString());
 			}
+		}
+
+		private void btnSaveFile_Click(object sender, System.EventArgs e)
+		{
+			try 
+			{
+				if(_webServiceList == null)
+					return;
+				
+				string path = _currentFile;
+
+				if(path == null && saveFileDialog.ShowDialog() == DialogResult.OK)
+				{
+					path = saveFileDialog.FileName;
+				}
+
+				if(path != null && path.Length > 0) 
+				{
+					_webServiceList.Serialize(path);
+					_currentFile = path;
+					SetTitle(path);
+					MessageBox.Show(Path.GetFileName(path) + " saved");
+				}
+			}
+			catch(Exception x)
+			{
+				MessageBox.Show(x.ToString());
+			}		
 		}
 
 		private void btnTest_Click(object sender, System.EventArgs e)
